@@ -1,145 +1,62 @@
+# MetaACO для RCPSP
 
-# MetaACO-RCPSP
+Исследовательский проект построения расписаний с ограниченными возобновляемыми ресурсами: baseline ACO и MetaACO с портфелем колоний. Цель — минимизация makespan в single-mode RCPSP.
 
-Self-replicating Ant Colony Optimization (ACO) framework for the  
-**Resource-Constrained Project Scheduling Problem (RCPSP)**  
-with experiments on **PSPLIB** benchmark instances.
+## Запуск на Linux-сервере
 
-This repository contains a research-oriented implementation combining
-Ant Colony Optimization, Serial Schedule Generation (SGS),
-multi-colony coordination via UCB bandits, and evolutionary
-self-replication of solver parameters.
+Требуется Python 3.9 или новее. Алгоритмы, тесты, чтение XLSX и анализ результатов используют стандартную библиотеку Python; установка сторонних пакетов для этих команд не требуется. Для воспроизведения последнего локального сравнения рекомендуется Python 3.13.
 
----
-
-## Features
-
-- Ant Colony Optimization with **position-based pheromones**
-- **Serial Schedule Generation Scheme (SGS)** for RCPSP
-- Multiple colonies with heterogeneous parameters
-- **UCB multi-armed bandit** for adaptive colony selection
-- Self-replication and mutation of successful colonies
-- Elite archive and global pheromone reinforcement
-- Support for **PSPLIB** instances (j30 / j60 / j90)
-
----
-
-## Project Structure
-````
-metaACO/
-├── psplib/                # PSPLIB benchmark instances (.sm)
-│   ├── j301_1.sm
-│   └── …
-└── rcpsp/
-├── metaACO.py         # main solver
-└── .venv/             # local virtual environment (not committed)
-````
----
-
-## Requirements
-
-- macOS or Linux
-- Python **3.9+** (tested with Python 3.13)
-- PSPLIB `.sm` benchmark files
-
----
-
-## Installation
-
-### 1. Clone the repository
+Клонируйте репозиторий и перейдите в каталог проекта:
 
 ```bash
-git clone 
+git clone https://github.com/irakli8888/metaACO.git
+cd metaACO
+```
 
-2. Create a virtual environment
+Далее выполните:
 
+```bash
 python3 -m venv .venv
-
-3. Activate the environment
-
-source .venv/bin/activate
-
-4. Install dependencies
-
-python -m pip install --upgrade pip
-python -m pip install psplib
-
-5. Verify installation
-
-python -c "import psplib; print('psplib OK')"
-
-Expected output:
-
-psplib OK
-
-```
----
-
-Usage
-
-Basic run (PSPLIB j30)
-
-From the rcpsp directory:
-
-```
-python metaACO.py ../psplib/j301_1.sm
-
-Run with parameters
-
-python metaACO.py ../psplib/j301_1.sm \
-  --seed 1 \
-  --iterations 500 \
-  --ants 20 \
-  --init-colonies 3 \
-  --max-colonies 10
-
-Run without activating the virtual environment (alternative)
-
-.venv/bin/python metaACO.py ../psplib/j301_1.sm
+.venv/bin/python -B -m unittest discover -s tests -v
 ```
 
-⸻
+Проверочный запуск двух алгоритмов на одной небольшой задаче:
 
-Command-Line Arguments
-````
-Argument	Description	Default
-file	Path to PSPLIB .sm file	required
---seed	Random seed	42
---iterations	Number of meta-iterations	500
---ants	Ants per iteration	20
---init-colonies	Initial number of colonies	3
---max-colonies	Maximum number of colonies	10
-````
----
+```bash
+.venv/bin/python -B rcpsp/run_experiments.py \
+  --instance psplib/j301_1.sm --evaluations 100 --seeds 2 \
+  --output-dir experiment_results_v2/server_smoke
+.venv/bin/python -B rcpsp/analyze_results.py experiment_results_v2/server_smoke
+```
 
-Output
+Общее сравнение: 15 локальных задач, 10 случайных инициализаций, два алгоритма, по 10 000 оценок расписаний (включая локальный поиск):
 
-Example output:
+```bash
+mkdir -p experiment_results_v2
+nohup .venv/bin/python -u -B rcpsp/run_experiments.py \
+  --evaluations 10000 --seeds 10 \
+  --output-dir experiment_results_v2/server_10000x10 \
+  > experiment_results_v2/server_10000x10.log 2>&1 &
+```
 
-Best makespan: 73
-Best colony params: ColonyParams(alpha=1.21, beta=3.9, rho=0.05, q0=0.68, ...)
-Start times: [0, 0, 4, 6, 8, 13, ...]
+Следить за журналом:
 
-	•	Best makespan — optimization objective value
-	•	Start times — start time of each job (job IDs 0..n−1)
+```bash
+tail -f experiment_results_v2/server_10000x10.log
+```
 
----
+После завершения:
 
-Benchmark Notes
-	•	j30 — recommended for debugging and algorithm analysis
-	•	j60 — reduce number of ants and iterations
-	•	j90 — computationally expensive; start with:
+```bash
+.venv/bin/python -B rcpsp/analyze_results.py experiment_results_v2/server_10000x10
+```
 
---iterations 100 --ants 5
+Каталог каждого прогона должен быть новым. В нем сохраняются `manifest.json`, `summary.csv`, снимки исходного кода и входных данных, конфигурации, журналы и сертификаты расписаний. Анализатор создает `analysis.json`. Не читайте manifest до создания каталога запуска. Для отдельной задачи замените параметры выборки на `--instance psplib/j1201_5.sm`.
 
+## Научный протокол
 
+- [Протокол экспериментов](EXPERIMENT_PROTOCOL_RU.md)
+- [Аудит кода](SCIENTIFIC_CODE_AUDIT_RU.md)
+- [Отчет об исправлениях](SCIENTIFIC_CODE_FIXES_REPORT_RU.md)
 
----
-
-
-Limitations
-	•	Single-mode RCPSP only
-	•	Renewable resources only
-	•	No job preemption
-	•	Minimal CLI (no subcommands, no logging flags)
-
+Локальные результаты, виртуальные окружения и настройки IDE исключены из Git. Включены 15 исходных задач PSPLIB и существующая таблица эталонов `rcpsp/RCPLIB (Parameters and BKS).xlsx`. Это локальная выборка, а не полный PSPLIB. Сравнение алгоритмов целиком не определяет отдельный вклад UCB, репликации или локального поиска и не доказывает общую эффективность метода.
